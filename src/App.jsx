@@ -45,7 +45,7 @@ export default function App() {
       setData(result);
       setIp(result.ip);
     } catch (err) {
-      setError(err.message);
+      setError(err.message || "Unable to look up this IP.");
     } finally {
       setLoading(false);
     }
@@ -64,12 +64,13 @@ export default function App() {
     try {
       const response = await fetch(`${API}/my-ip`);
       const result = await response.json();
+
       if (!response.ok) throw new Error(result.error || "IP lookup failed.");
 
       setData(result);
       setIp(result.ip);
     } catch (err) {
-      setError(err.message);
+      setError(err.message || "IP lookup failed.");
     } finally {
       setLoading(false);
     }
@@ -92,7 +93,7 @@ export default function App() {
 
       setPhoneInfo(result);
     } catch (err) {
-      setPhoneError(err.message);
+      setPhoneError(err.message || "Phone lookup failed.");
     }
   }
 
@@ -111,12 +112,10 @@ export default function App() {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Could not create link.");
 
-      const link = `${window.location.origin}/?share=${result.token}`;
+      const link = `${window.location.origin}/?share=${encodeURIComponent(result.token)}`;
       setShareLink(link);
     } catch (err) {
-      setShareError(
-        `${err.message}. Make sure the backend is running and API is reachable.`
-      );
+      setShareError(err.message || "Could not create a sharing link.");
     }
   }
 
@@ -125,18 +124,37 @@ export default function App() {
     setShareResult(null);
 
     try {
-      const response = await fetch(`${API}/share/${shareToken}`);
+      if (!shareLink) {
+        throw new Error("Create a sharing link first.");
+      }
+
+      // Read the token from the newly created link,
+      // not from the main page's URL.
+      const tokenToCheck = new URL(shareLink).searchParams.get("share");
+
+      if (!tokenToCheck) {
+        throw new Error("Token not found. Please create a new link.");
+      }
+
+      const response = await fetch(
+        `${API}/share/${encodeURIComponent(tokenToCheck)}`
+      );
       const result = await response.json();
 
-      if (!response.ok) throw new Error(result.error || "Could not check link.");
-
-      if (!result.shared) {
-        setShareError("No location shared yet. Ask the phone owner to complete sharing.");
-      } else {
-        setShareResult(result.location);
+      if (!response.ok) {
+        throw new Error(result.error || "Could not check the link.");
       }
+
+      if (!result.shared || !result.location) {
+        setShareError(
+          "Location not shared yet. The device owner must open the link and approve location access."
+        );
+        return;
+      }
+
+      setShareResult(result.location);
     } catch (err) {
-      setShareError(err.message);
+      setShareError(err.message || "Could not check the sharing link.");
     }
   }
 
@@ -158,7 +176,7 @@ export default function App() {
       async (position) => {
         try {
           const response = await fetch(
-            `${API}/share/${shareToken}/location`,
+            `${API}/share/${encodeURIComponent(shareToken)}/location`,
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -171,11 +189,15 @@ export default function App() {
           );
 
           const result = await response.json();
-          if (!response.ok) throw new Error(result.error || "Sharing failed.");
+          if (!response.ok) {
+            throw new Error(result.error || "Sharing failed.");
+          }
 
-          setShareError("Location shared successfully. You can close this page.");
+          setShareError(
+            "Location shared successfully. Return to the main page and click Check Shared Location."
+          );
         } catch (err) {
-          setShareError(err.message);
+          setShareError(err.message || "Location sharing failed.");
         } finally {
           setSharing(false);
         }
@@ -184,7 +206,7 @@ export default function App() {
         setSharing(false);
         setShareError(
           err.code === 1
-            ? "Permission denied. Allow location access if you want to share."
+            ? "Permission denied. Allow location access only if you want to share."
             : "Could not get location. Check device settings and try again."
         );
       },
@@ -193,26 +215,14 @@ export default function App() {
   }
 
   const mapUrl = data
-    ? `https://www.openstreetmap.org/export/embed.html?bbox=${
-        Number(data.longitude) - 0.05
-      }%2C${Number(data.latitude) - 0.03}%2C${
-        Number(data.longitude) + 0.05
-      }%2C${Number(data.latitude) + 0.03}&layer=mapnik&marker=${
-        data.latitude
-      }%2C${data.longitude}`
+    ? `https://www.openstreetmap.org/export/embed.html?bbox=${Number(data.longitude) - 0.05}%2C${Number(data.latitude) - 0.03}%2C${Number(data.longitude) + 0.05}%2C${Number(data.latitude) + 0.03}&layer=mapnik&marker=${data.latitude}%2C${data.longitude}`
     : "";
 
   const sharedMapUrl = shareResult
-    ? `https://www.openstreetmap.org/export/embed.html?bbox=${
-        shareResult.longitude - 0.01
-      }%2C${shareResult.latitude - 0.01}%2C${
-        shareResult.longitude + 0.01
-      }%2C${shareResult.latitude + 0.01}&layer=mapnik&marker=${
-        shareResult.latitude
-      }%2C${shareResult.longitude}`
+    ? `https://www.openstreetmap.org/export/embed.html?bbox=${shareResult.longitude - 0.01}%2C${shareResult.latitude - 0.01}%2C${shareResult.longitude + 0.01}%2C${shareResult.latitude + 0.01}&layer=mapnik&marker=${shareResult.latitude}%2C${shareResult.longitude}`
     : "";
 
-  // A link containing ?share=... opens the phone owner's consent screen.
+  // This page is displayed when the owner opens a sharing link.
   if (shareToken) {
     return (
       <main className="app">
@@ -221,7 +231,7 @@ export default function App() {
             <p className="eyebrow">CONSENT-BASED SHARING</p>
             <h1>Share Device Location</h1>
             <p className="subtitle">
-              Your location will only be shared after you agree and grant permission.
+              Your location is shared only after you agree and grant browser permission.
             </p>
           </div>
         </header>
@@ -233,8 +243,7 @@ export default function App() {
               checked={shareConsent}
               onChange={(e) => setShareConsent(e.target.checked)}
             />
-            I agree to share this device's current coordinates with the person
-            who gave me this link.
+            I agree to share this device's current location with the person who sent me this link.
           </label>
 
           <button
@@ -248,8 +257,7 @@ export default function App() {
           {shareError && <p>{shareError}</p>}
 
           <p className="note">
-            You can decline by leaving this page. This demo's sharing link
-            expires after 15 minutes.
+            You may decline by leaving this page. This demo's sharing link expires after 15 minutes.
           </p>
         </section>
       </main>
@@ -263,7 +271,7 @@ export default function App() {
           <p className="eyebrow">NETWORK INTELLIGENCE</p>
           <h1>IP Tracker</h1>
           <p className="subtitle">
-            Public IP lookup, phone metadata and consent-based sharing
+            Public IP lookup, phone metadata and consent-based location sharing
           </p>
         </div>
         <span className="status">● API Powered</span>
@@ -337,8 +345,15 @@ export default function App() {
 
           <section className="panel">
             <h2>IP Location Map</h2>
-            <iframe title="IP location map" src={mapUrl} className="map" loading="lazy" />
-            <p className="note">IP-based location is an estimate, not exact GPS.</p>
+            <iframe
+              title="IP location map"
+              src={mapUrl}
+              className="map"
+              loading="lazy"
+            />
+            <p className="note">
+              IP location is an estimate, not exact GPS.
+            </p>
           </section>
         </>
       )}
@@ -347,7 +362,7 @@ export default function App() {
         <h2>Phone Number Information</h2>
         <p>
           Enter an international number such as +919876543210.
-          This checks number metadata only; it does not track a phone.
+          This checks number metadata only; it cannot reveal the phone's IP or live location.
         </p>
 
         <form className="search" onSubmit={lookupPhone}>
@@ -357,7 +372,9 @@ export default function App() {
             placeholder="Example: +919876543210"
             aria-label="Phone number"
           />
-          <button type="submit" disabled={!phone.trim()}>Check Number</button>
+          <button type="submit" disabled={!phone.trim()}>
+            Check Number
+          </button>
         </form>
 
         {phoneError && <p className="error">{phoneError}</p>}
@@ -378,8 +395,8 @@ export default function App() {
       <section className="panel">
         <h2>Share My Location With Consent</h2>
         <p>
-          Create a temporary link and send it to the phone owner.
-          They must open it and approve location sharing themselves.
+          Create a temporary link and send it to the device owner.
+          They must open the link and approve sharing themselves.
         </p>
 
         <button type="button" onClick={createShareLink}>
@@ -389,14 +406,27 @@ export default function App() {
         {shareLink && (
           <div>
             <p>Send this link to the person who will choose whether to share:</p>
-            <input readOnly value={shareLink} aria-label="Location sharing link" />
+            <input
+              readOnly
+              value={shareLink}
+              aria-label="Location sharing link"
+            />
             <button
               type="button"
-              onClick={() => navigator.clipboard.writeText(shareLink)}
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(shareLink);
+                  setShareError("Link copied.");
+                } catch {
+                  setShareError("Copy failed. Select and copy the link manually.");
+                }
+              }}
             >
               Copy Link
             </button>
+
             <p className="note">The link expires after 15 minutes.</p>
+
             <button type="button" onClick={checkSharedLocation}>
               Check Shared Location
             </button>
@@ -410,8 +440,17 @@ export default function App() {
             <h3>Location Shared</h3>
             <p>Latitude: {shareResult.latitude}</p>
             <p>Longitude: {shareResult.longitude}</p>
-            <p>Reported accuracy: approximately {Math.round(shareResult.accuracy)} metres</p>
-            <iframe title="Shared device location" src={sharedMapUrl} className="map" loading="lazy" />
+            <p>
+              Reported accuracy: approximately {Math.round(shareResult.accuracy)} metres
+            </p>
+
+            <iframe
+              title="Shared device location"
+              src={sharedMapUrl}
+              className="map"
+              loading="lazy"
+            />
+
             <a
               href={`https://www.openstreetmap.org/?mlat=${shareResult.latitude}&mlon=${shareResult.longitude}#map=17/${shareResult.latitude}/${shareResult.longitude}`}
               target="_blank"
