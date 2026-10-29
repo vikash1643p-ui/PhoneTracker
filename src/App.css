@@ -1,0 +1,171 @@
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #0b1120;
+  color: #e5edf9;
+  font-family: Arial, sans-serif;
+}
+
+.app {
+  max-width: 1100px;
+  margin: auto;
+  padding: 32px 20px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+h1 {
+  font-size: clamp(30px, 5vw, 44px);
+  margin: 8px 0;
+}
+
+h2 {
+  margin-top: 0;
+}
+
+.subtitle,
+.panel p {
+  color: #a7b4cb;
+  line-height: 1.6;
+}
+
+.eyebrow {
+  color: #5eead4 !important;
+  font-size: 12px;
+  letter-spacing: 2px;
+  font-weight: bold;
+}
+
+.status {
+  color: #5eead4;
+  border: 1px solid #285b58;
+  border-radius: 20px;
+  padding: 10px 14px;
+  white-space: nowrap;
+}
+
+.panel {
+  background: #141e31;
+  border: 1px solid #26344c;
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 20px;
+}
+
+.search {
+  display: flex;
+  gap: 12px;
+  margin: 20px 0;
+}
+
+input:not([type="checkbox"]) {
+  min-width: 0;
+  flex: 1;
+  background: #0b1120;
+  color: white;
+  border: 1px solid #3a4963;
+  border-radius: 8px;
+  padding: 14px;
+  font-size: 16px;
+}
+
+button {
+  background: #14b8a6;
+  color: #071521;
+  border: 0;
+  border-radius: 8px;
+  padding: 13px 18px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.secondary {
+  background: #243b55;
+  color: white;
+  margin-top: 14px;
+}
+
+.visitor {
+  border-top: 1px solid #26344c;
+  padding-top: 16px;
+}
+
+.consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: #c4d0e1;
+  line-height: 1.5;
+}
+
+.consent input {
+  margin-top: 4px;
+}
+
+.results {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.map {
+  display: block;
+  width: 100%;
+  height: 360px;
+  border: 0;
+  border-radius: 10px;
+  background: #0b1120;
+}
+
+.note {
+  font-size: 13px;
+}
+
+.error {
+  color: #fca5a5 !important;
+}
+
+a {
+  color: #5eead4;
+}
+
+footer {
+  text-align: center;
+  padding: 24px 0;
+  color: #8492a9;
+  font-size: 13px;
+}
+
+@media (max-width: 650px) {
+  .header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .results {
+    grid-template-columns: 1fr;
+  }
+
+  .search {
+    flex-direction: column;
+  }
+
+  .map {
+    height: 280px;
+  }
+}
